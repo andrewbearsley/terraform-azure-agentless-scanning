@@ -125,11 +125,15 @@ locals {
   environment_variables_as_list = concat([for key, val in local.environment_variables : { name = key, value = val }],
   [for obj in var.additional_environment_variables : { name = obj["name"], value = obj["value"] }])
 
-  key_vault_id = var.global ? azurerm_key_vault.lw_orchestrate[0].id : (
+  key_vault_id = var.global ? (
+    length(var.key_vault_id) > 0 ? var.key_vault_id : azurerm_key_vault.lw_orchestrate[0].id
+  ) : (
     length(var.global_module_reference.key_vault_id) > 0 ? var.global_module_reference.key_vault_id : var.key_vault_id
   )
   key_vault_secret_name = var.global ? "${local.prefix}-secret-${local.suffix}" : var.global_module_reference.key_vault_secret_name
-  key_vault_uri         = var.global ? azurerm_key_vault.lw_orchestrate[0].vault_uri : var.global_module_reference.key_vault_uri
+  key_vault_uri         = var.global ? (
+    length(var.key_vault_id) > 0 ? data.azurerm_key_vault.existing[0].vault_uri : azurerm_key_vault.lw_orchestrate[0].vault_uri
+  ) : var.global_module_reference.key_vault_uri
 
   /* role_definition_id created as part of azurerm_role_definition creation contains an extra '|' character in the end, which needs to be removed (using split) */
   monitored_subscription_role_definition_id = var.global ? split("|", azurerm_role_definition.agentless_monitored_subscription[0].id)[0] : var.global_module_reference.monitored_subscription_role_definition_id
@@ -186,6 +190,17 @@ data "azurerm_resource_group" "scanning_rg" {
   name = local.scanning_resource_group_name
 }
 
+data "azurerm_key_vault" "existing" {
+  count = var.global && length(var.key_vault_id) > 0 ? 1 : 0
+  name                = split("/", var.key_vault_id)[length(split("/", var.key_vault_id))-1]
+  resource_group_name = split("/", var.key_vault_id)[4]
+}
+
+data "azuread_application" "existing" {
+  count = var.global && length(var.app_registration_client_id) > 0 ? 1 : 0
+  client_id = var.app_registration_client_id
+}
+
 // Azure role propagation takes few seconds,so we are adding sleep before calling lacework api. 
 resource "time_sleep" "wait_for_role_assignment_propagation" {
   depends_on = [
@@ -209,7 +224,7 @@ resource "lacework_integration_azure_agentless_scanning" "lacework_cloud_account
 
   name = local.lacework_integration_name_local
   credentials {
-    client_id     = azuread_application.lw[0].client_id
+    client_id     = length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_application.lw[0].client_id
     client_secret = azuread_service_principal_password.data_loader[0].value
   }
   integration_level            = local.integration_level
@@ -233,7 +248,7 @@ This section defines resources that are shared by individual sections down below
 */
 
 resource "azuread_application" "lw" {
-  count = var.global ? 1 : 0
+  count = var.global && length(var.app_registration_client_id) == 0 ? 1 : 0
 
   display_name = "laceworkagentless"
   owners       = local.owners
@@ -242,7 +257,7 @@ resource "azuread_application" "lw" {
 resource "azuread_service_principal" "data_loader" {
   count = var.global ? 1 : 0
 
-  client_id                    = azuread_application.lw[0].client_id
+  client_id                    = length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_application.lw[0].client_id
   app_role_assignment_required = true
   use_existing                 = true
   owners                       = local.owners
@@ -274,7 +289,7 @@ resource "azurerm_user_assigned_identity" "sidekick" {
 Define the key vault which holds integration details 
 */
 resource "azurerm_key_vault" "lw_orchestrate" {
-  count      = var.global ? 1 : 0
+  count      = var.global && length(var.key_vault_id) == 0 ? 1 : 0
   depends_on = [azurerm_resource_group.scanning_rg]
 
   name                       = "${local.prefix}-agentless-${local.suffix}"
@@ -283,6 +298,8 @@ resource "azurerm_key_vault" "lw_orchestrate" {
   tenant_id                  = local.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
+  enable_rbac_authorization  = true
+  purge_protection_enabled   = true
   tags                       = var.tags
 
   network_acls {
@@ -297,7 +314,7 @@ id (as an env variable) to be created, while the key vault needs the container
 app managed identity to create access policies.
  */
 resource "azurerm_key_vault_access_policy" "access_for_sidekick" {
-  count = var.global ? 1 : 0
+  count = var.global && length(var.key_vault_id) == 0 ? 1 : 0
 
   key_vault_id = local.key_vault_id
   tenant_id    = local.tenant_id
@@ -312,7 +329,7 @@ resource "azurerm_key_vault_access_policy" "access_for_sidekick" {
 }
 
 resource "azurerm_key_vault_access_policy" "access_for_user" {
-  count = var.global ? 1 : 0
+  count = var.global && length(var.key_vault_id) == 0 ? 1 : 0
 
   key_vault_id = local.key_vault_id
   tenant_id    = local.tenant_id
@@ -353,7 +370,7 @@ resource "azurerm_key_vault_secret" "lw_orchestrate" {
   count = var.global ? 1 : 0
   depends_on = [
     lacework_integration_azure_agentless_scanning.lacework_cloud_account,
-    azurerm_key_vault_access_policy.access_for_user
+    azurerm_role_assignment.key_vault_user
   ]
 
   /* stores credentials used to authenticate to LW API server */

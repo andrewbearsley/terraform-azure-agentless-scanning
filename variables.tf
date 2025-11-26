@@ -46,6 +46,12 @@ variable "key_vault_id" {
   default     = ""
 }
 
+variable "app_registration_client_id" {
+  type        = string
+  description = "The Client ID of an existing Azure AD App Registration to use. If provided, the module will not create a new App Registration."
+  default     = ""
+}
+
 # Scanner configuration 
 variable "image_url" {
   type        = string
