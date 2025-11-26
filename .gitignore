@@ -44,3 +44,6 @@ override.tf.json
 
 /.idea/
 .DS_Store
+
+# Implementation guide (contains implementation context, not for version control)
+IMPLEMENTATION_GUIDE.md
