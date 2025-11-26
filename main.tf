@@ -298,8 +298,8 @@ resource "azurerm_key_vault" "lw_orchestrate" {
   tenant_id                  = local.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
-  enable_rbac_authorization  = true
-  purge_protection_enabled   = true
+  enable_rbac_authorization  = var.key_vault_enable_rbac_authorization
+  purge_protection_enabled   = var.key_vault_enable_purge_protection
   tags                       = var.tags
 
   network_acls {
@@ -350,7 +350,7 @@ resource "azurerm_key_vault_access_policy" "access_for_user" {
 
 /* assign key vault contributor role to the service principal */
 resource "azurerm_role_assignment" "key_vault_sidekick" {
-  count = var.global ? 1 : 0
+  count = var.global && (var.key_vault_enable_rbac_authorization || length(var.key_vault_id) > 0) ? 1 : 0
 
   scope                = local.key_vault_id
   role_definition_name = "Key Vault Contributor"
@@ -359,7 +359,7 @@ resource "azurerm_role_assignment" "key_vault_sidekick" {
 
 /* assign key vault contributor role to the current user */
 resource "azurerm_role_assignment" "key_vault_user" {
-  count = var.global ? 1 : 0
+  count = var.global && (var.key_vault_enable_rbac_authorization || length(var.key_vault_id) > 0) ? 1 : 0
 
   scope                = local.key_vault_id
   role_definition_name = "Key Vault Contributor"
@@ -370,7 +370,8 @@ resource "azurerm_key_vault_secret" "lw_orchestrate" {
   count = var.global ? 1 : 0
   depends_on = [
     lacework_integration_azure_agentless_scanning.lacework_cloud_account,
-    azurerm_role_assignment.key_vault_user
+    azurerm_role_assignment.key_vault_user,
+    azurerm_key_vault_access_policy.access_for_user
   ]
 
   /* stores credentials used to authenticate to LW API server */

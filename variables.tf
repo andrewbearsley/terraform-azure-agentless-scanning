@@ -46,6 +46,18 @@ variable "key_vault_id" {
   default     = ""
 }
 
+variable "key_vault_enable_rbac_authorization" {
+  type        = bool
+  description = "Enable RBAC authorization for module-created Key Vault. Defaults to false for backwards compatibility."
+  default     = false
+}
+
+variable "key_vault_enable_purge_protection" {
+  type        = bool
+  description = "Enable purge protection for module-created Key Vault. Defaults to false for backwards compatibility."
+  default     = false
+}
+
 variable "app_registration_client_id" {
   type        = string
   description = "The Client ID of an existing Azure AD App Registration to use. If provided, the module will not create a new App Registration."
