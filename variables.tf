@@ -58,6 +58,12 @@ variable "key_vault_enable_purge_protection" {
   default     = false
 }
 
+variable "key_vault_secret_expiration_date" {
+  type        = string
+  description = "Expiration date for the Key Vault secret in RFC3339 format (e.g., '2025-12-31T23:59:59Z'). If not provided, defaults to 1 year from creation. Required if Azure Policy enforces secret expiration."
+  default     = ""
+}
+
 variable "app_registration_client_id" {
   type        = string
   description = "The Client ID of an existing Azure AD App Registration to use. If provided, the module will not create a new App Registration."

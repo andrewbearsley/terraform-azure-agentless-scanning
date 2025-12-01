@@ -417,7 +417,8 @@ resource "azurerm_key_vault_secret" "lw_orchestrate" {
     "token": "${lacework_integration_azure_agentless_scanning.lacework_cloud_account[0].server_token}"
    }
   EOF
-  key_vault_id = local.key_vault_id
+  key_vault_id   = local.key_vault_id
+  expiration_date = length(var.key_vault_secret_expiration_date) > 0 ? var.key_vault_secret_expiration_date : timeadd(timestamp(), "8760h") // Default to 1 year if not specified
 }
 
 /* **************** End Key Vault **************** */
