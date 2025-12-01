@@ -374,6 +374,15 @@ resource "azurerm_role_assignment" "key_vault_sidekick" {
   principal_id         = local.sidekick_principal_id
 }
 
+/* assign key vault secrets officer role to the service principal for secret operations */
+resource "azurerm_role_assignment" "key_vault_sidekick_secrets" {
+  count = var.global && (var.key_vault_enable_rbac_authorization || length(var.key_vault_id) > 0) ? 1 : 0
+
+  scope                = local.key_vault_id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = local.sidekick_principal_id
+}
+
 /* assign key vault contributor role to the current user */
 resource "azurerm_role_assignment" "key_vault_user" {
   count = var.global && (var.key_vault_enable_rbac_authorization || length(var.key_vault_id) > 0) ? 1 : 0
@@ -383,11 +392,20 @@ resource "azurerm_role_assignment" "key_vault_user" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+/* assign key vault secrets officer role to the current user for secret operations */
+resource "azurerm_role_assignment" "key_vault_user_secrets" {
+  count = var.global && (var.key_vault_enable_rbac_authorization || length(var.key_vault_id) > 0) ? 1 : 0
+
+  scope                = local.key_vault_id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 resource "azurerm_key_vault_secret" "lw_orchestrate" {
   count = var.global ? 1 : 0
   depends_on = [
     lacework_integration_azure_agentless_scanning.lacework_cloud_account,
-    azurerm_role_assignment.key_vault_user,
+    azurerm_role_assignment.key_vault_user_secrets,
     azurerm_key_vault_access_policy.access_for_user
   ]
 
