@@ -1,5 +1,5 @@
 output "agentless_credentials_client_secret" {
-  value       = var.global ? azuread_service_principal_password.data_loader[0].value : ""
+  value       = local.data_loader_client_secret
   description = "Client secret of the service principal of Lacework app"
   sensitive   = true
 }
