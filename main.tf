@@ -145,6 +145,16 @@ locals {
 
   sidekick_client_id = var.global ? azurerm_user_assigned_identity.sidekick[0].client_id : var.global_module_reference.sidekick_client_id
 
+  data_loader_service_principal_id = var.global ? (
+    length(var.app_registration_client_id) > 0 ? data.azuread_service_principal.existing[0].id : azuread_service_principal.data_loader[0].id
+  ) : ""
+  data_loader_service_principal_object_id = var.global ? (
+    length(var.app_registration_client_id) > 0 ? data.azuread_service_principal.existing[0].object_id : azuread_service_principal.data_loader[0].object_id
+  ) : ""
+  data_loader_service_principal_client_id = var.global ? (
+    length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_service_principal.data_loader[0].client_id
+  ) : ""
+
   custom_network = length(var.custom_network) > 0 ? var.custom_network : (var.regional ? azurerm_subnet.agentless_subnet[0].id : "")
 
   region                          = lower(replace(var.region, " ", ""))
@@ -201,6 +211,11 @@ data "azuread_application" "existing" {
   client_id = var.app_registration_client_id
 }
 
+data "azuread_service_principal" "existing" {
+  count = var.global && length(var.app_registration_client_id) > 0 ? 1 : 0
+  client_id = var.app_registration_client_id
+}
+
 // Azure role propagation takes few seconds,so we are adding sleep before calling lacework api. 
 resource "time_sleep" "wait_for_role_assignment_propagation" {
   depends_on = [
@@ -217,7 +232,6 @@ resource "lacework_integration_azure_agentless_scanning" "lacework_cloud_account
   app, hence the depency below 
   */
   depends_on = [
-    azuread_service_principal.data_loader,
     azurerm_storage_container.scanning,
     time_sleep.wait_for_role_assignment_propagation,
   ]
@@ -255,9 +269,9 @@ resource "azuread_application" "lw" {
 }
 
 resource "azuread_service_principal" "data_loader" {
-  count = var.global ? 1 : 0
+  count = var.global && length(var.app_registration_client_id) == 0 ? 1 : 0
 
-  client_id                    = length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_application.lw[0].client_id
+  client_id                    = azuread_application.lw[0].client_id
   app_role_assignment_required = true
   use_existing                 = true
   owners                       = local.owners
@@ -268,7 +282,7 @@ resource "azuread_service_principal" "data_loader" {
 resource "azuread_service_principal_password" "data_loader" {
   count = var.global ? 1 : 0
 
-  service_principal_id = azuread_service_principal.data_loader[0].id
+  service_principal_id = local.data_loader_service_principal_id
   end_date_relative    = "87600h" // expires in 10 years
 }
 
@@ -431,7 +445,7 @@ resource "azurerm_role_assignment" "storage_sidekick" {
 resource "azurerm_role_assignment" "storage_data_loader" {
   count = var.global ? 1 : 0
 
-  principal_id         = azuread_service_principal.data_loader[0].object_id
+  principal_id         = local.data_loader_service_principal_object_id
   role_definition_name = "Storage Blob Data Reader"
   scope                = local.storage_account_id
 }

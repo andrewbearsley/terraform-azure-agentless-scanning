@@ -47,3 +47,6 @@ override.tf.json
 
 # Implementation guide (contains implementation context, not for version control)
 IMPLEMENTATION_GUIDE.md
+
+# Notes file (contains explanations for customers, not for version control)
+NOTES.md

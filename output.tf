@@ -5,7 +5,7 @@ output "agentless_credentials_client_secret" {
 }
 
 output "agentless_credentials_client_id" {
-  value       = var.global ? azuread_service_principal.data_loader[0].client_id : ""
+  value       = local.data_loader_service_principal_client_id
   description = "Client id of the service principal of Lacework app"
 }
 
