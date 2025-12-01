@@ -154,6 +154,9 @@ locals {
   data_loader_service_principal_client_id = var.global ? (
     length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_service_principal.data_loader[0].client_id
   ) : ""
+  data_loader_client_secret = var.global ? (
+    length(var.app_registration_client_secret) > 0 ? var.app_registration_client_secret : azuread_service_principal_password.data_loader[0].value
+  ) : ""
 
   custom_network = length(var.custom_network) > 0 ? var.custom_network : (var.regional ? azurerm_subnet.agentless_subnet[0].id : "")
 
@@ -239,7 +242,7 @@ resource "lacework_integration_azure_agentless_scanning" "lacework_cloud_account
   name = local.lacework_integration_name_local
   credentials {
     client_id     = length(var.app_registration_client_id) > 0 ? var.app_registration_client_id : azuread_application.lw[0].client_id
-    client_secret = azuread_service_principal_password.data_loader[0].value
+    client_secret = local.data_loader_client_secret
   }
   integration_level            = local.integration_level
   blob_container_name          = local.blob_container_name
@@ -280,7 +283,7 @@ resource "azuread_service_principal" "data_loader" {
 }
 
 resource "azuread_service_principal_password" "data_loader" {
-  count = var.global ? 1 : 0
+  count = var.global && length(var.app_registration_client_secret) == 0 ? 1 : 0
 
   service_principal_id = local.data_loader_service_principal_id
   end_date_relative    = "87600h" // expires in 10 years

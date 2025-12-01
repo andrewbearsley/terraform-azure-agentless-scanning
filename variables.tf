@@ -64,6 +64,13 @@ variable "app_registration_client_id" {
   default     = ""
 }
 
+variable "app_registration_client_secret" {
+  type        = string
+  description = "The Client Secret (password) of an existing Azure AD App Registration to use. If provided along with app_registration_client_id, the module will not create a new client secret. If not provided, the module will attempt to create a new secret (requires permissions on the Service Principal)."
+  default     = ""
+  sensitive   = true
+}
+
 # Scanner configuration 
 variable "image_url" {
   type        = string
