@@ -50,3 +50,9 @@ IMPLEMENTATION_GUIDE.md
 
 # Notes file (contains explanations for customers, not for version control)
 NOTES.md
+
+# Troubleshooting guide (contains troubleshooting steps for customers, not for version control)
+TROUBLESHOOTING_GUIDE.md
+
+# Support folder (contains customer support cases, not for version control)
+support/

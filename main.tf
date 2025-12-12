@@ -624,6 +624,35 @@ resource "azurerm_container_app_environment" "agentless_orchestrate" {
   log_analytics_workspace_id = var.create_log_analytics_workspace ? azurerm_log_analytics_workspace.agentless_orchestrate[0].id : null
 }
 
+# Configure appLogsConfiguration for Log Analytics
+# The azurerm_container_app_environment resource sets log_analytics_workspace_id
+# but does not configure appLogsConfiguration.logs_destination, which is required
+# by Azure to actually send logs to Log Analytics workspace.
+resource "azapi_resource_action" "configure_app_logs" {
+  count = var.regional && var.create_log_analytics_workspace ? 1 : 0
+  
+  type        = "Microsoft.App/managedEnvironments@2023-05-01"
+  resource_id = azurerm_container_app_environment.agentless_orchestrate[0].id
+  action      = ""
+  method      = "PATCH"
+  
+  body = jsonencode({
+    properties = {
+      appLogsConfiguration = {
+        destination = "log-analytics"
+        logAnalyticsConfiguration = {
+          customerId = azurerm_log_analytics_workspace.agentless_orchestrate[0].workspace_id
+        }
+      }
+    }
+  })
+  
+  depends_on = [
+    azurerm_container_app_environment.agentless_orchestrate,
+    azurerm_log_analytics_workspace.agentless_orchestrate
+  ]
+}
+
 
 // Cloud Scheduler job to periodically run the Azure Container App 
 // https://learn.microsoft.com/en-us/rest/api/containerapps/preview/jobs/create-or-update?tabs=HTTP#jobconfiguration 
